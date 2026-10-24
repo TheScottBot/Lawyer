@@ -8,8 +8,8 @@ A Discord bot that looks rules up in our own rulebooks, so nobody has to dig thr
 
 It reads only from books we've built it (see [docs/SETUP.md](docs/SETUP.md)): no AI, no internet, nothing made up.
 Every answer says which book and page it came from. Right now that's the 2014 Player's Handbook, Monster Manual,
-Xanathar's Guide to Everything and Tasha's Cauldron of Everything; the Dungeon Master's Guide and Monsters of the
-Multiverse are next.
+Xanathar's Guide to Everything, Tasha's Cauldron of Everything and Monsters of the Multiverse; the Dungeon Master's
+Guide is next.
 
 To run it on the homelab, see [deploy/INSTALL.md](deploy/INSTALL.md).
 

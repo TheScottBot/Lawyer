@@ -81,6 +81,18 @@ def test_one_subrace():
     assert ask(character.race_command, "gnoll", subrace="plains gnoll").embed.title == "🧝 Plains Gnoll"
 
 
+def test_race_with_only_traits_headings(test_book):
+    """Monsters of the Multiverse has no "Genasi" heading, only Air Genasi Traits and the rest."""
+    from tests.conftest import entry
+    for kind in ("Air", "Fire"):
+        test_book.entries.append(entry(f"tb.race.{kind.lower()}-genasi-traits", f"{kind} Genasi Traits", "race", 16,
+                                       f"**Speed.** {kind} speed.", path=["Chapter 1: Fantastical Races"]))
+    both = ask(character.race_command, "genasi")
+    assert both.embed.title == "🧝 Air Genasi, Fire Genasi"
+    assert field_names(both) == ["🔹 Air Genasi Traits", "Speed", "🔹 Fire Genasi Traits", "Speed"]
+    assert ask(character.race_command, "fire genasi").embed.title == "🧝 Fire Genasi Traits"
+
+
 def test_autocomplete():
     found = run(character.class_autocomplete(Interaction(SCOTT), "kn"))
     assert [(c.name, c.value) for c in found] == [("Knight (TB)", "tb.class.knight")]

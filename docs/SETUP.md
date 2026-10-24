@@ -61,7 +61,8 @@ headings, list them in `ignore_headings` (see Tasha's entry).
 
 A bestiary (lots of stat blocks, PDF bookmarks for its monsters) is built differently: give it `"layout":
 "monsters"`, `page_offset` (PDF pages before the book's page 1) and `statblock_index_pages` (its Index of Stat
-Blocks, 0 = the PDF's first page). See the Monster Manual's entry. The build says how many stat blocks it found and
+Blocks, 0 = the PDF's first page; `[]` if it has none and bookmarks every creature, like Monsters of the
+Multiverse). See the Monster Manual's entry. The build says how many stat blocks it found and
 which index names it couldn't place.
 
 ## A second bot for testing

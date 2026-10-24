@@ -124,9 +124,16 @@ The Monster Manual's scan is complete but uses generic fonts (no small caps to g
 - **Names come from the book's Index of Stat Blocks** (`statblock_index_pages`): the name above a stat block is in a
   display font the OCR often loses ("~0"), so each stat block on a page takes the index's name for that page
   closest to what's above it, or the one left over. The build reports index names no stat block took (mostly
-  templates, which aren't stat blocks).
-- **Lair actions and regional effects** (lore headings) are entries of their own ("Aboleth Lair Actions"), and the
-  monsters under that bookmark list them in `stats["lair"]`.
+  templates, which aren't stat blocks). With no index (Monsters of the Multiverse), every creature is bookmarked
+  instead (`name_from_bookmarks`): a name the OCR ran together ("REDABISHAI") takes the bookmark with the same
+  letters, in the stat block's order ("Abishai, Red" is Red Abishai), and a lost one takes its page's bookmark that
+  no stat block has.
+- **Headings in the lore are entries of their own** under their bookmark: a race's "Changeling Traits" (which
+  `/race` reads), a sidebar. Lair actions and regional effects are named for the monster ("Aboleth Lair Actions"),
+  and the monsters under that bookmark list them in `stats["lair"]`. A heading that's the bookmark's own name
+  carries on its text; the running footer ("44 Chapter 2 | Bestiary") is never a heading.
+- **The book's own bookmark** (one top-level bookmark with everything under it: "Mordenkainen Presents...") is
+  dropped, and **a page several bookmarks start on** belongs to the first (Genasi, Earth / Fire / Water).
 
 ### 5c. Headings in capitals (`caps_build.py`)
 
@@ -227,6 +234,10 @@ All three read `rule.rulebook` (so the tests' stand-in book reaches them too):
   Features", "Maneuver Options": `NOT_SUBCLASSES`).
 - **/race**: a race is a `race` entry with "<Race> Traits" among its sections. Its traits are that entry's run-in
   rules, one field each; its subraces are the sections under it.
+
+A race the book has no heading for, only its kinds' traits (Monsters of the Multiverse's Genasi: Air Genasi Traits
+and the rest), is found by `traits_named`: every race traits heading with all the words typed (`/race genasi` is
+all four, `/race fire genasi` one).
 
 Typing "fighter battle master" finds the shortest start that's a class by name, and the rest is the subclass. With a
 subclass, `/class` shows both collapsed into one list (`subclass_pages`): every feature in level order, the

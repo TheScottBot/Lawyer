@@ -225,6 +225,33 @@ def race_pages(race: Entry, only: Entry | None = None) -> list[discord.Embed]:
     return paged(title, RACE_COLOUR, traits or race, about, fields, author="Race")
 
 
+def traits_named(typed: str) -> list[Entry]:
+    """Race traits headings with every word typed in their name: a race the book has no heading for, only its
+    kinds' traits ("genasi": Air Genasi Traits, Earth Genasi Traits...; "fire genasi": just Fire's)."""
+    typed_words = fuzzy.words(typed)
+    found = []
+    for entry in rule.rulebook.entries:
+        if entry.category != "race" or not entry.title.endswith(" Traits") or not typed_words:
+            continue
+        title_words = fuzzy.words(entry.title)
+        if all(any(fuzzy.same_word(t, w) for w in title_words) for t in typed_words):
+            found.append(entry)
+    return found
+
+
+def traits_pages(traits: list[Entry]) -> list[discord.Embed]:
+    fields = []
+    for entry in traits:
+        own = run_in_fields(entry.text)
+        if own and own[0][0] == "​":
+            own[0] = (f"🔹 {entry.title}", own[0][1])
+        else:
+            own.insert(0, (f"🔹 {entry.title}", f"{entry.where}"))
+        fields += own
+    title = traits[0].title if len(traits) == 1 else ", ".join(t.title.removesuffix(" Traits") for t in traits)
+    return paged(f"🧝 {title}", RACE_COLOUR, traits[0], "", fields, author="Race")
+
+
 class BookPages(discord.ui.View):
     """◀ ▶ through pages, and a menu (subclasses, subraces) that swaps in another set. Only whoever asked."""
 
@@ -403,6 +430,11 @@ async def race_command(ctx: commands.Context, *, name: str, subrace: str | None 
     else:
         race, rest = best(name, pool), subrace
     if not race:
+        traits = traits_named(f"{name} {subrace or ''}")
+        if traits:  # Genasi: no "Genasi" heading, but Air, Earth, Fire and Water Genasi Traits
+            pages = traits_pages(traits)
+            await send_pages(ctx, pages, BookPages(pages, ctx.author.id, "race"), private)
+            return
         await ctx.send(nothing("race", name, pool), ephemeral=True)
         return
     subs = subraces(race)

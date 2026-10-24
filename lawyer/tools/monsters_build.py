@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from lawyer.tools import caps_build
 from lawyer.tools import rules_build as rb
 from lawyer.tools import statblocks
 
@@ -80,6 +81,14 @@ def read(pdf: Path) -> tuple[list[str], list[Bookmark]]:
             marks.append(mark)
             last = mark
     walk(reader.outline or [], 0, None)
+    tops = [m for m in marks if m.depth == 0]
+    if len(tops) == 1 and tops[0].children:  # The book's own ("Mordenkainen Presents..."): everything's under it
+        root = tops[0]
+        marks.remove(root)
+        for mark in marks:
+            mark.depth -= 1
+            if mark.parent is root:
+                mark.parent = None
     return [page.extract_text() or "" for page in reader.pages], marks
 
 
@@ -87,9 +96,14 @@ def is_heading(line: str) -> bool:
     """A heading in capitals: "AARAKOCRA", "LAIR ACTIONS", "SUMMONING AIR ElEM .ENTALS". Not ACTIONS (a stat block's
     own), not an ability's "STR"."""
     letters = [c for c in line if c.isalpha()]
-    if len(letters) < 4 or statblocks.section_of(line) or len(line.split()) > 7:
+    if len(letters) < 4 or statblocks.section_of(line) or len(line.split()) > 7 or is_footer(line):
         return False
     return sum(c.isupper() for c in letters) >= 0.75 * len(letters)
+
+
+def is_footer(line: str) -> bool:
+    """The running footer: "44 Chapter 2 | Bestiary", "Io Chapter 1 I Fantastical Races"."""
+    return bool(re.search(r"chap\W*t\W*er\W*[\dIlO]", line, re.IGNORECASE)) and len(line.split()) <= 9
 
 
 def find_blocks(page: int, text: str) -> tuple[list[Block], list[str]]:
@@ -158,9 +172,43 @@ def name_blocks(blocks: list[Block], index: dict[int, list[str]], offset: int) -
                 block.name = left.pop(0)
         unused += left
     for block in blocks:  # Not in the index: its own name, if it has one
-        if not block.name:
-            block.name = block.above.title() if block.above else f"Unnamed creature (p. {block.page - offset})"
+        if not block.name and block.above:
+            block.name = block.above.title()
     return unused
+
+
+def name_from_bookmarks(blocks: list[Block], marks: list[Bookmark], words: rb.Words, offset: int,
+                        rename: bool = True) -> None:
+    """For a bestiary with no index (Monsters of the Multiverse), where every creature has a bookmark: a stat block
+    whose name the OCR lost takes its page's bookmark no stat block has, and one whose name ran together
+    ("REDABISHAI") takes the bookmark with the same letters, in the stat block's order ("Abishai, Red" is "Red
+    Abishai"). Any other name is spaced and capitalised as a title ("Swarm of Cranium Rats")."""
+    leaves = [m for m in marks if not m.children and not is_letter(m.title)]
+    taken: set[int] = set()
+    for block in blocks:
+        if not block.name or not rename:
+            continue
+        mine = letters(block.name)
+        for mark in leaves:
+            if id(mark) not in taken and abs(mark.page - block.page) <= 1 and sorted(letters(mark.title)) == sorted(mine):
+                parts = [p.strip() for p in mark.title.split(",")]
+                ordered = " ".join(reversed(parts)) if len(parts) == 2 and mine.startswith(letters(parts[1])) \
+                    else mark.title
+                block.name = ordered
+                taken.add(id(mark))
+                break
+        else:
+            block.name = rb.fix_title(rb.repair(block.name.lower(), words), words)
+    for block in blocks:
+        if block.name:
+            continue
+        here = [m for m in leaves if id(m) not in taken and m.page <= block.page] or []
+        mark = max(here, key=lambda m: m.page) if here else None
+        if mark and mark.page >= block.page - 2:
+            block.name = mark.title
+            taken.add(id(mark))
+        else:
+            block.name = f"Unnamed creature (p. {block.page - offset})"
 
 
 def paragraphs(lines: list[str], words: rb.Words) -> list[tuple[str, str]]:
@@ -184,12 +232,18 @@ def paragraphs(lines: list[str], words: rb.Words) -> list[tuple[str, str]]:
                                             or (i + 1 < len(lines) and is_heading(lines[i + 1].strip())))
         if is_heading(stripped) and not caps_run:
             close()
+            stripped = re.sub(r"(?<=[A-Za-z])!(?=[A-Za-z\s]|$)", "I", stripped)  # "GENAS! TRAITS": the OCR's ! for I
             out.append(("heading", rb.fix_title(rb.repair(rb.tidy_title(stripped.lower()), words), words)))
             continue
         run_in = statblocks.ITEM.match(stripped)
         if run_in and len(run_in.group(1).split()) <= 4 and para and re.search(r"[.!?]\s*$", para[-1]):
             close()
-            para.append(f"**{statblocks.tidy(run_in.group(1))}.** {run_in.group(2)}")
+            name = statblocks.tidy(run_in.group(1))
+            if " " not in name and len(name) >= 8:  # "Furyofthe Small" was "Fury of the Small"
+                name = rb.fix_title(caps_build.respace(name.lower(), words), words)
+            elif any(caps_build.respace(w.lower(), words) != w.lower() for w in name.split() if len(w) >= 8):
+                name = rb.fix_title(caps_build.respace(name.lower(), words), words)
+            para.append(f"**{name}.** {run_in.group(2)}")
             continue
         para.append(stripped)
     close()
@@ -214,6 +268,7 @@ def build(book_id: str, book: dict, pdf: Path) -> dict:
         lore_lines[number] = rest
     index = stat_block_index(pages, book.get("statblock_index_pages", []), words)
     unused = name_blocks(all_blocks, index, offset)
+    name_from_bookmarks(all_blocks, marks, words, offset, rename=not index)  # The index's names are the book's
 
     def owner(page: int) -> Bookmark | None:
         """The deepest bookmark whose pages this is on."""
@@ -252,24 +307,37 @@ def build(book_id: str, book: dict, pdf: Path) -> dict:
         pages_of = range(mark.page, later[0] if later else len(pages))
         if mark.children:
             pages_of = range(mark.page, min(c.page for c in mark.children) or mark.page + 1)
+        if any(m.page == mark.page and not is_letter(m.title) for m in marks[:n]):
+            pages_of = range(mark.page + 1, pages_of.stop)  # Its first page is an earlier bookmark's (Genasi, Fire)
         lines = [l for p in pages_of for l in lore_lines.get(p, [])]
-        sections, text, lair = [], [], None
+        # A heading in the lore is an entry of its own, under the bookmark ("Changeling Traits", a sidebar); its lair's
+        # are named for it ("Aboleth Lair Actions"). A heading that's the bookmark's own name carries on its text.
+        sections: list[tuple[str, list[str], bool]] = []  # (title, paragraphs, is it the lair's)
+        text: list[str] = []
+        current: list[str] = text
         for kind, value in paragraphs(lines, words):
             if kind == "heading":
                 lair = LAIR.get(rb.plain(value))
                 if lair:
-                    sections.append((lair, []))
-                elif not letters(value) == letters(mark.title):
-                    text.append(f"**{value}**")
+                    sections.append((f"{mark.title} {lair}", [], True))
+                    current = sections[-1][1]
+                elif letters(value) == letters(mark.title):
+                    current = text
+                else:
+                    sections.append((value, [], False))
+                    current = sections[-1][1]
                 continue
-            (sections[-1][1] if lair and sections else text).append(value)
+            current.append(value)
         path = mark.path()
         entry = add(mark.title, category, mark.page, path, "\n\n".join(text))
         lore_of[id(mark)] = entry
-        for name, body in sections:
-            add(f"{mark.title} {name}", category, mark.page, path + [mark.title], "\n\n".join(body))
-            entry["sections"].append(f"{mark.title} {name}")
-            lairs.setdefault(rb.plain(mark.title), []).append(f"{mark.title} {name}")
+        for name, body, is_lair in sections:
+            if not body:
+                continue  # A heading with nothing under it: a caption, or a stat block's name
+            add(name, category, mark.page, path + [mark.title], "\n\n".join(body))
+            entry["sections"].append(name)
+            if is_lair:
+                lairs.setdefault(rb.plain(mark.title), []).append(name)
 
     # Stat blocks: under the bookmark whose pages they're on
     for block in all_blocks:

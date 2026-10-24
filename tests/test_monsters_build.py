@@ -51,6 +51,22 @@ def test_lore_paragraphs():
                    ("text", "The grub's lair wobbles.")]
 
 
+def test_footer_is_not_a_heading():
+    assert mb.is_footer("44 Chapter 2 I Bestiary") and mb.is_footer("Io Chapter 1 I Fantastical Races")
+    assert not mb.is_heading("44 CHAPTER 2 I BESTIARY")
+    assert not mb.is_footer("GRUB TRAITS")
+
+
+def test_names_from_bookmarks():
+    """No index (Monsters of the Multiverse): a run-together name takes its bookmark's, in the stat block's order,
+    and a lost one takes the page's bookmark no stat block has."""
+    marks = [mb.Bookmark("Abishai, Red", 40, 1), mb.Bookmark("Grub", 41, 1)]
+    blocks = [mb.Block(40, [], "REDABISHAI", "REDABISHAI"), mb.Block(41, [], "SWARM OF GRUBS", "SWARM OF GRUBS"),
+              mb.Block(41, [], ""), mb.Block(90, [], "")]
+    mb.name_from_bookmarks(blocks, marks, Words(["swarm of grubs"] * 5), 0)
+    assert [b.name for b in blocks] == ["Red Abishai", "Swarm of Grubs", "Grub", "Unnamed creature (p. 90)"]
+
+
 def test_quote_in_capitals_is_not_headings():
     lines = ["THE GRUB IS", "MIGHTY AND WISE", "Grubs live underground."]
     assert [kind for kind, _ in mb.paragraphs(lines, Words([""]))] == ["text"]

@@ -102,6 +102,25 @@
         "Magic Items": "item",
         "Ch. 4: Dungeon Master's Tools": "rule"
       }
+    },
+    "mpmm": {
+      "published": "2022-05-17",
+      "source": "MPMM",
+      "title": "Mordenkainen Presents: Monsters of the Multiverse",
+      "edition": "5e-2014",
+      "file": "Monsters of the Multiverse Colored.pdf",
+      "layout": "monsters",
+      "page_offset": 0,
+      "statblock_index_pages": [],
+      "default_category": "lore",
+      "categories": {
+        "Contents": "skip",
+        "Using This Book": "rule",
+        "Chapter 1: Fantastical Races": "race",
+        "Creating Your Character": "rule",
+        "Chapter 2: Bestiary": "lore",
+        "Appendix: Monster Lists": "rule"
+      }
     }
   }
 }
