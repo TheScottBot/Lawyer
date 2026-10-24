@@ -121,6 +121,27 @@
         "Chapter 2: Bestiary": "lore",
         "Appendix: Monster Lists": "rule"
       }
+    },
+    "dmg": {
+      "published": "2014-12-09",
+      "source": "DMG",
+      "title": "Dungeon Master's Guide",
+      "edition": "5e-2014",
+      "file": "Dungeon Master's Guide (1).pdf",
+      "layout": "caps",
+      "page_offset": -1,
+      "levels": [[12.5, 4], [0, 5]],
+      "smallest_heading": 0.78,
+      "default_category": "rule",
+      "categories": {
+        "Cover": "skip",
+        "Contents": "skip",
+        "Magic Items": "item",
+        "Sentient Magic Items": "item",
+        "Artifacts": "item",
+        "Appendix C: Maps": "skip",
+        "Index": "skip"
+      }
     }
   }
 }

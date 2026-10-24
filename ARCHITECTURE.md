@@ -149,13 +149,19 @@ Handbook, so it's the PHB's pipeline (`rules_build`'s tree, entries, word repair
   so a heading's letters are split again into the cheapest words: one the book uses costs 1 (a short one that isn't
   everyday, 1.5), one it never prints whole costs more the longer it is, and "words" that are just everyday words
   run together ("ofthe") don't count. The words come from this book and every other built book (`heading_words`),
-  since this scan prints some words only split. A heading already in words is left alone.
+  since this scan prints some words only split. A heading already in words is left alone, and a "word" with an
+  everyday one stuck on ("axeof") doesn't count either.
+- A heading needs a word of three letters or more (the DMG's treasure tables' "CP SP" columns aren't headings), and
+  an item's or spell's italic line under its name can run onto a second line ("*Weapon (any sword...),*"
+  "*legendary (requires attunement)*"): it's one line.
 
 Supplements' subclasses join their class: `/class` finds every book's heading for the same class, and its
 subclasses (Xanathar's Barbarian > Primal Paths > Path of the Zealot) go in the menu with their source.
 
-**Deeper bookmarks** (Tasha's bookmarks every subclass, spell and magic item: `deeper_bookmarks`): each depth below
-the sections is a level (a subclass 3), and every other heading goes one below the deepest, all at the same level,
+**Deeper bookmarks** (Tasha's bookmarks every subclass, spell and magic item, the DMG its chapters' sections:
+`deeper_bookmarks`): in such a book every bookmark below the chapters, sections included, is matched on its own page
+(the DMG has "Doors" in its Dungeons chapter and in Appendix A), each depth a level (a subclass 3), and every other
+heading goes one below the deepest, all at the same level,
 because Tasha's headings' sizes don't say much (a subclass's is no bigger than its features', and "Ranger
 Archetypes" is bigger than both). A bookmark finds its heading on its page or either side; one with no heading (The
 Genie's title is only in the art) is put back at the top of its page. Then **`reown`** moves each feature to the

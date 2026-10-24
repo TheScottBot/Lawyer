@@ -63,9 +63,11 @@ def heading_of(line: list[Run], body: float, smallest: float = 0.82,
     size = max(r.size for r in line)
     if size < body * smallest:
         return None  # A caption, or the footer
-    title = re.sub(r"\s+", " ", text).strip()
+    title = re.sub(r"\s+", " ", text).strip().lstrip(".,;:-\\ ")
     if not re.search(r"[A-Z]{2}", title.replace(" ", "")):
         return None
+    if not re.search(r"[A-Za-z]{3}", title):
+        return None  # A table's columns: "CP SP", "EP GP"
     return title, size
 
 
@@ -118,8 +120,14 @@ def blocks_of(pages: list[list[Run]], levels: list[list[float]], smallest: float
                 text = f"**{label.group(1).strip()}:** {label.group(2)}"
                 starts = True
             elif first.italic and blocks and blocks[-1].kind == "heading":
-                text = f"*{text.strip()}*\n"  # A spell's school, just under its name
+                text = f"*{text.strip()}*\n"  # A spell's school, an item's kind: just under its name
                 starts = True
+            elif first.italic and blocks and blocks[-1].starts and blocks[-1].text.endswith("*\n") \
+                    and not blocks[-1].text.rstrip("*\n").endswith((".", ")")) or (
+                    first.italic and blocks and blocks[-1].starts and blocks[-1].text.rstrip().endswith(",*")):
+                # Its second line: "*Weapon (any sword that deals slashing damage),*" "legendary (requires attunement)"
+                blocks[-1].text = f"{blocks[-1].text.rstrip()[:-1]} {text.strip()}*\n"
+                continue
             blocks.append(Block("text", text, page=number, x=first.x, starts=starts))
     return blocks
 
@@ -135,6 +143,10 @@ def respace(title: str, vocab: rb.Words) -> str:
             return 1.0
         if runs_together(piece):
             return None  # "ofthe", "wayofthesun": everyday words the OCR ran together, not a word
+        for little in ("of", "the", "and", "to", "in"):  # "axeof": a word with "of" stuck on
+            if piece.endswith(little) and len(piece) - len(little) >= 3 and vocab[piece[:-len(little)]] >= 3 \
+                    and not vocab[piece] >= 20:
+                return None
         if vocab[piece] >= 2 and len(piece) > 1 and not vocab.fragment(piece):  # Not "desc" of "desc rip tions"
             return 1.5 if len(piece) <= 3 else 1.0
         if len(piece) >= 4:
@@ -310,7 +322,9 @@ def build(book_id: str, book: dict, pdf: Path) -> dict:
     toc = [Contents(title, numbers[page], depth == top) for depth, title, page in marks if depth in (top, top + 1)]
     chapters = [c for c in toc if c.chapter]
     sections = [c for c in toc if not c.chapter]
-    blocks = rb.restructure(blocks, sections, numbers, vocab)
+    deep = any(d >= top + 2 for d, _, _ in marks)
+    if not deep:  # Xanathar's: sections by name, anywhere (and the headings' sizes do the rest)
+        blocks = rb.restructure(blocks, sections, numbers, vocab)
     spelled = {rb.plain(c.title): c.title for c in sections}
     for block in blocks:  # A section's heading as its bookmark spells it: "Spell Desc Rip Tions" is Spell Descriptions
         if block.kind == "heading" and block.level == 2 and rb.plain(block.text) in spelled:
@@ -322,6 +336,9 @@ def build(book_id: str, book: dict, pdf: Path) -> dict:
     for block in blocks:  # A heading the book's size makes a chapter's is a section's, under the bookmarks' chapter
         if block.kind == "heading" and block.level == 1 and block.text not in {c.title for c in chapters}:
             block.level = 2
-    blocks = deeper_bookmarks(blocks, [(d - top, t, p) for d, t, p in marks if d >= top + 2], vocab)
+    # Deeper bookmarks (Tasha's, the DMG): every level found on its own page, sections too; the DMG has "Doors" in its
+    # Dungeons chapter and in Appendix A, and only the bookmark's page says which is the section
+    blocks = deeper_bookmarks(blocks, [(d - top, t, p) for d, t, p in marks if d >= (top + 1 if deep else top + 2)],
+                              vocab)
     return {"book": book_id, "source": book["source"], "title": book["title"], "edition": book["edition"],
             "entries": rb.entries(rb.tree(blocks), book_id, book, numbers, vocab)}

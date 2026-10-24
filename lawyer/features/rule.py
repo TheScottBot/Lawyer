@@ -29,9 +29,11 @@ CATEGORY_COLOURS = {
     "background": discord.Color.orange(),
     "creature": discord.Color.dark_grey(),
     "lore": discord.Color.dark_blue(),
+    "item": discord.Color.fuchsia(),
+    "monster": discord.Color.dark_red(),
 }
 CATEGORY_EMOJI = {"condition": "🩸", "rule": "📜", "spell": "✨", "feat": "🏅", "class": "⚔️", "race": "🧝",
-                  "equipment": "🎒", "background": "📖", "creature": "🐾", "lore": "🌌"}
+                  "equipment": "🎒", "background": "📖", "creature": "🐾", "lore": "🌌", "item": "💍", "monster": "🐉"}
 
 rulebook = Rulebook.load(config.RULES_DIR)
 if rulebook.books:

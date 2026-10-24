@@ -24,6 +24,36 @@ def test_headings_are_capitals_in_times():
     assert cb.heading_of([Run("TAA", "Times-Bold", 13, 50, 300)], 9.5, ignore=frozenset({"taa"})) is None
 
 
+def test_table_columns_are_not_headings():
+    assert cb.heading_of([Run("CP SP", BODY, 9, 50, 300)], 9.5) is None  # The DMG's treasure tables
+    assert cb.heading_of([Run(". YFAGIC ITEM CATEGORIES", BODY, 9, 50, 300)], 9.5)[0] == "YFAGIC ITEM CATEGORIES"
+
+
+def test_two_line_item_kind():
+    """A magic item's kind can run onto a second italic line: it's one line under the name."""
+    page = [Run("VORPAL SWORD", BODY, 8.1, 40, 500),
+            Run("Weapon (any sword that deals slashing damage),", "Times-Italic", 9.5, 40, 488),
+            Run("legendary (requires attunement)", "Times-Italic", 9.5, 40, 477),
+            Run("You gain a +3 bonus.", BODY, 9.5, 40, 466)]
+    blocks = cb.blocks_of([page], [[0, 5]])
+    assert [b.text for b in blocks][:2] == [
+        "vorpal sword", "*Weapon (any sword that deals slashing damage), legendary (requires attunement)*\n"]
+
+
+def test_respace_word_with_of_stuck_on():
+    words = Words(["axe axe axe axe axe of the dwarvish lords"] * 5)  # "axe" as often as a book has it
+    assert cb.respace("axeof the dwarvish lords", words) == "axe of the dwarvish lords"
+
+
+def test_deep_bookmarks_find_their_own_page():
+    """The DMG has "Doors" in its Dungeons chapter and in Appendix A: the bookmark's page says which."""
+    blocks = [heading("Dungeons", 100, 4), heading("Doors", 102), text("Dungeon doors.", 102),
+              heading("Appendix A", 289, 4), heading("Doors", 290), text("Random doors.", 290)]
+    out = cb.deeper_bookmarks(blocks, [(1, "Appendix A", 289), (2, "Doors", 290)], Words([""]))
+    doors = [b for b in out if b.kind == "heading" and b.text == "Doors"]
+    assert [(d.page, d.level) for d in doors] == [(102, 4), (290, 3)]
+
+
 def test_run_in_over_several_runs():
     line = [Run("At", "Times-Italic", 10, 50, 300), Run("Higher", "Times-Italic", 10, 60, 300),
             Run("Levels.", "Times-Italic", 10, 90, 300), Run("When you cast", BODY, 9.5, 120, 300)]
