@@ -97,8 +97,15 @@ def label_of(line: str) -> tuple[str, str] | None:
 
 def is_type_line(line: str) -> bool:
     """"Large aberration, lawful evil", "Medium humanoid (any race), any alignment"; and the OCR's "11uge"."""
-    first = squash(line.split(" ")[0]) if line.strip() else ""
-    return any(close(first, size.lower()) for size in SIZES) and "," in line
+    line = line.strip().strip("*").strip()
+    first = squash(line.split(" ")[0]) if line else ""
+    if not any(close(first, size.lower()) for size in SIZES):
+        return False
+    if "," in line:
+        return True
+    # A summon's has no alignment: "Small elemental", "Large or smaller construct"
+    words = squash(line.split("(")[0]).replace(first, "", 1)
+    return len(line.split()) <= 5 and any(t in words for t in TYPES)
 
 
 def close(a: str, b: str) -> bool:
@@ -148,8 +155,11 @@ def parse_hp(value: str, checks: list[str]) -> tuple[int | None, str]:
     value = fix_numbers(value)
     match = re.match(r"(\d+)\s*\(([^)]*)\)", value)
     if not match:
-        number = re.match(r"(\d+)", value)
-        return (int(number.group(1)) if number else None), ""
+        number = re.fullmatch(r"\s*(\d+)\s*", value)
+        if number:
+            return int(number.group(1)), ""
+        # A formula: Tasha's summons have "10 + five times your bard level", which is the hit points as written
+        return (tidy(value) or None), ""
     # "1 8d8 + 54", "7d10 + i 1": digits split and misread
     dice = re.sub(rf"(?<=[+\-] )([{DIGITISH} ]+)$", lambda m: digits(m.group(1)).replace(" ", ""), match.group(2))
     dice = re.sub(r"(\d) (?=\d)", r"\1", fix_numbers(dice))
@@ -164,6 +174,9 @@ def parse_hp(value: str, checks: list[str]) -> tuple[int | None, str]:
 
 def parse_cr(value: str, checks: list[str]) -> tuple[str | None, int | None]:
     value = fix_numbers(value).replace(" ", "")
+    if not value or value.lower().lstrip("-—–").startswith("proficiency"):
+        return None, None  # A summon's: no Challenge, or "Challenge — Proficiency Bonus equals your bonus"
+    value = re.sub(r"^[Oo](?=\(|$)", "0", value)  # "O (10 XP)": CR 0
     match = re.match(r"(\d+/\d+|\d+)", value)
     if not match or match.group(1) not in XP:
         checks.append(f"challenge rating not read: {value!r}")
@@ -276,8 +289,9 @@ def parse(lines: list[str], words=lambda text: text) -> dict:
             properties[current] = value
         elif current and current not in ("ac", "hp", "cr"):
             properties[current] += " " + line.strip()  # A long list wrapped onto the next line
-        else:
+        elif current:
             rest.append(line)
+        # Before Armor Class, anything else is a stray line (the name again, a caption): skipped
     stats["ac"], stats["ac_note"] = parse_ac(properties.get("ac", ""))
     stats["ac_note"] = words(stats["ac_note"])
     stats["hp"], stats["hp_dice"] = parse_hp(properties.get("hp", ""), checks)
@@ -329,7 +343,8 @@ def modifier(score: int) -> str:
 
 def render(name: str, stats: dict) -> str:
     """The stat block as Markdown text: the entry's text, so /rule shows it and a search can find words in it."""
-    lines = [f"*{stats.get('size', '')} {stats.get('type', '')}, {stats.get('alignment', '')}*".replace(" ,", ",")]
+    kind = f"{stats.get('size', '')} {stats.get('type', '')}".strip()
+    lines = [f"*{kind}, {stats['alignment']}*" if stats.get("alignment") else f"*{kind}*"]
     ac = f"**Armor Class** {stats.get('ac')}" + (f" ({stats['ac_note']})" if stats.get("ac_note") else "")
     hp = f"**Hit Points** {stats.get('hp')}" + (f" ({stats['hp_dice']})" if stats.get("hp_dice") else "")
     lines += [ac, hp, f"**Speed** {stats.get('speed', '')}"]

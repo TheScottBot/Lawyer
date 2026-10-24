@@ -625,9 +625,11 @@ def entries(root: Node, book_id: str, book: dict, numbers: list[int], vocab: Wor
         category = category_of(node, book)
         if category == "skip" or not node.title:
             continue
-        if node.run_in and (names[node.title.lower()] > COMMON_RUN_IN or category == "creature"):
+        if node.run_in and (names[node.title.lower()] > COMMON_RUN_IN or category == "creature"
+                            or has_stat_block(node.parent)):
             continue  # A label ("At Higher Levels."), or a creature's trait or action: part of its stat block
-        stats = stat_block(node, vocab) if category == "creature" else None
+        # A creature's stat block, or one in a class feature or spell (Tasha's Wildfire Spirit, Steel Defender)
+        stats = stat_block(node, vocab) if category == "creature" or has_stat_block(node) else None
         if stats:
             text = [statblocks.render(node.title, stats)]
         else:
@@ -656,6 +658,14 @@ def entries(root: Node, book_id: str, book: dict, numbers: list[int], vocab: Wor
             **({"stats": stats} if stats else {}),
         })
     return found
+
+
+def has_stat_block(node: Node | None) -> bool:
+    """Whether a heading's own lines are a stat block: Armor Class and Hit Points, among its first few lines."""
+    if node is None:
+        return False
+    found = {f[0] for b in node.lines[:8] if (f := statblocks.label_of(b.text))}
+    return {"ac", "hp"} <= found
 
 
 def stat_block(node: Node, vocab: Words) -> dict | None:

@@ -81,6 +81,19 @@ def test_problems_are_listed():
     assert "no actions read" in stats["checks"]
 
 
+def test_summon():
+    """Tasha's summons: no alignment, hit points as a formula, and no challenge rating."""
+    stats = sb.parse(["*Small elemental*", "Armor Class 13 (natural armor)",
+                      "Hit Points 5 + five times your druid level", "Speed 30 ft., fly 30 ft. (hover)",
+                      "STR", "10 (+0)", "DEX", "14 (+2)", "CON", "14 (+2)", "INT", "13 (+1)", "WIS", "15 (+2)",
+                      "CHA", "11 (+0)", "Challenge — Proficiency Bonus equals your bonus", "ACTIONS",
+                      "Flame Seed. Ranged Spell Attack: your spell attack modifier to hit, range 60 ft., one target."])
+    assert (stats["size"], stats["type"], stats["alignment"]) == ("Small", "elemental", "")
+    assert stats["hp"] == "5 + five times your druid level"
+    assert stats["cr"] is None and "checks" not in stats
+    assert sb.render("Wildfire Spirit", stats).startswith("*Small elemental*\n")
+
+
 def test_fix_numbers():
     assert sb.fix_numbers("Hit: S (Sd6) and 1S ft. (SO XP) ld4 2IO") == "Hit: 5 (5d6) and 15 ft. (50 XP) 1d4 210"
     assert sb.fix_numbers("Some Ogres are Old") == "Some Ogres are Old"  # Words stay words

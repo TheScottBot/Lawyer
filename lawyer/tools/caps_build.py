@@ -19,6 +19,7 @@ from collections import Counter
 from pathlib import Path
 
 from lawyer.tools import rules_build as rb
+from lawyer.tools import statblocks
 from lawyer.tools.rules_build import Block, Contents, Run
 
 FOOTER = 45  # Points from the bottom of the page: the running footer ("CHAPTER 1 | CHARACTER OPTIONS")
@@ -46,16 +47,21 @@ def level_of(size: float, levels: list[list[float]]) -> int:
     return next((level for least, level in levels if size >= least), levels[-1][1])
 
 
-def heading_of(line: list[Run], body: float) -> tuple[str, float] | None:
-    """(title, size) if the line is a heading: all capitals, in Times (not a table's Helvetica), bigger than a
-    caption, and not the footer."""
+def heading_of(line: list[Run], body: float, smallest: float = 0.82,
+               ignore: frozenset[str] = frozenset()) -> tuple[str, float] | None:
+    """(title, size) if the line is a heading: all capitals, in Times (not a table's Helvetica or Arial), at least
+    `smallest` of the text's size (not a caption), not the footer, and not one of books.json's "ignore_headings"
+    (Tasha's handwritten notes in the art: "TAA", "TAHA")."""
     text = " ".join(r.text.strip() for r in line)
-    if not is_caps(text) or len(text) > rb.LONGEST_HEADING:
+    if not is_caps(text) or len(text) > rb.LONGEST_HEADING or rb.plain(text) in ignore:
         return None
-    if any("Helvetica" in r.font or r.italic for r in line) or line[0].y < FOOTER:
-        return None
+    if statblocks.is_ability_line(text) or statblocks.section_of(text):
+        return None  # A stat block's own "CHA" or "ACTIONS"
+    sans = sum(len(r.text) for r in line if "Helvetica" in r.font or "Arial" in r.font)
+    if sans * 2 > len(text) or any(r.italic for r in line) or line[0].y < FOOTER:
+        return None  # Mostly sans serif: a table's title ("INFECTIOUS" "FURY" is a heading with one word in Arial)
     size = max(r.size for r in line)
-    if size < body * 0.82:
+    if size < body * smallest:
         return None  # A caption, or the footer
     title = re.sub(r"\s+", " ", text).strip()
     if not re.search(r"[A-Z]{2}", title.replace(" ", "")):
@@ -79,14 +85,15 @@ def run_in_of(line: list[Run]) -> tuple[str, list[Run]] | None:
     return name[:-1].strip(), line[used:]
 
 
-def blocks_of(pages: list[list[Run]], levels: list[list[float]]) -> list[Block]:
+def blocks_of(pages: list[list[Run]], levels: list[list[float]], smallest: float = 0.82,
+              ignore: frozenset[str] = frozenset()) -> list[Block]:
     body = body_size(pages)
     blocks: list[Block] = []
     for number, runs in enumerate(pages):
         for line in rb.lines_of(runs):
             if line[0].y < FOOTER and is_caps(" ".join(r.text for r in line)):
                 continue  # The running footer
-            if heading := heading_of(line, body):
+            if heading := heading_of(line, body, smallest, ignore):
                 title, size = heading
                 level = level_of(size, levels)
                 last = blocks[-1] if blocks else None
@@ -190,6 +197,82 @@ def heading_words(vocab: rb.Words, book_id: str) -> rb.Words:
     return words
 
 
+def deeper_bookmarks(blocks: list[Block], marks: list[tuple[int, str, int]], vocab: rb.Words) -> list[Block]:
+    """Bookmarks below the sections (Tasha's: Barbarian > Path of the Beast, Spells > Booming Blade), as levels below
+    them: a subclass at 3, and so on. Each takes its heading on its page (or the next: a bookmark can point at the page
+    before), spelled as the bookmark spells it; one with no heading is put back at the start of its page. Then every
+    other heading goes under the deepest of them: in Tasha's a subclass's heading is no bigger than its features'."""
+    if not marks:
+        return blocks
+    deepest = 1 + max(depth for depth, _, _ in marks)
+    claimed: set[int] = set()
+    out = list(blocks)
+    for depth, title, page in marks:
+        key = rb.plain(title).rstrip("s")  # The heading can be singular: "Optional Class Feature"
+        found = next((b for b in out if b.kind == "heading" and id(b) not in claimed and page - 1 <= b.page <= page + 1
+                      and rb.plain(b.text).rstrip("s") == key), None)
+        if found is None:
+            at = next((i for i, b in enumerate(out) if b.page >= page), len(out))
+            found = Block("heading", title, 0, page)
+            out.insert(at, found)
+        found.level, found.text = 1 + depth, title
+        claimed.add(id(found))
+    for block in out:  # All one level: a bigger heading ("Ranger Archetypes") isn't the features' parent
+        if block.kind == "heading" and id(block) not in claimed and block.level > 2:
+            block.level = deepest + 1
+    return reown(out, [b for b in out if id(b) in claimed and b.level == deepest], deepest + 1)
+
+
+OWNER = re.compile(r"\d+\s*(?:st|nd|rd|th)\s*[- ]\s*level (.+?) feature", re.IGNORECASE)  # "4 th-level" too
+
+
+def owner_key(name: str) -> str:
+    return rb.plain(re.sub(r"^the ", "", name.strip().lower()))
+
+
+def reown(blocks: list[Block], subclasses: list[Block], feature_level: int) -> list[Block]:
+    """Each feature back under the subclass its own line says it's for ("6th-level Fathomless feature"). The scan
+    reads two-column pages out of order, and a subclass whose title is only in the art is put back at the top of
+    its page, so a feature can end up under the wrong one. A feature of the class itself ("2nd-level rogue feature")
+    stays where it is."""
+    keys = {id(b): owner_key(b.text) for b in subclasses}
+    units: list[list[Block]] = []
+    for block in blocks:
+        if block.kind == "heading" or not units:
+            units.append([block])
+        else:
+            units[-1].append(block)
+
+    def owner(unit: list[Block]) -> str | None:
+        head = unit[0]
+        if head.kind != "heading" or head.level < feature_level:
+            return None
+        text = " ".join(b.text for b in unit[1:5] if b.kind == "text")[:300]
+        match = OWNER.search(text)
+        if not match:
+            return None
+        named = owner_key(match.group(1))
+        return next((k for k in keys.values() if k and (k == named or named.endswith(k) or k.endswith(named))), None)
+
+    out: list[tuple[str | None, list[Block]]] = []  # (whose it is, unit)
+    current: str | None = None
+    for unit in units:
+        head = unit[0]
+        if id(head) in keys:
+            current = keys[id(head)]
+            out.append((current, unit))
+            continue
+        if head.kind == "heading" and head.level < feature_level:
+            current = None  # A class's own heading: what follows isn't a subclass's
+        mine = owner(unit)
+        if mine and mine != current and any(k == mine for k, _ in out):
+            last = max(i for i, (k, _) in enumerate(out) if k == mine)
+            out.insert(last + 1, (mine, unit))
+            continue
+        out.append((current if mine is None else mine, unit))
+    return [b for _, unit in out for b in unit]
+
+
 def outline(pdf: Path) -> list[tuple[int, str, int]]:
     """The PDF's bookmarks: (depth, title, PDF page), in order."""
     import pypdf
@@ -208,7 +291,8 @@ def outline(pdf: Path) -> list[tuple[int, str, int]]:
 
 def build(book_id: str, book: dict, pdf: Path) -> dict:
     pages = rb.read_runs(pdf)
-    blocks = blocks_of(pages, book["levels"])
+    ignore = frozenset(rb.plain(t) for t in book.get("ignore_headings", []))
+    blocks = blocks_of(pages, book["levels"], book.get("smallest_heading", 0.82), ignore)
     vocab = rb.vocabulary(blocks)
     words = heading_words(vocab, book_id)
     for block in blocks:
@@ -238,5 +322,6 @@ def build(book_id: str, book: dict, pdf: Path) -> dict:
     for block in blocks:  # A heading the book's size makes a chapter's is a section's, under the bookmarks' chapter
         if block.kind == "heading" and block.level == 1 and block.text not in {c.title for c in chapters}:
             block.level = 2
+    blocks = deeper_bookmarks(blocks, [(d - top, t, p) for d, t, p in marks if d >= top + 2], vocab)
     return {"book": book_id, "source": book["source"], "title": book["title"], "edition": book["edition"],
             "entries": rb.entries(rb.tree(blocks), book_id, book, numbers, vocab)}

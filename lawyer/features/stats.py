@@ -73,7 +73,8 @@ def warning(entry: Entry) -> str | None:
 def stat_embeds(entry: Entry) -> list[discord.Embed]:
     """The stat block as one embed, or pages of them if it's too big for one."""
     s = entry.stats
-    head = f"*{s.get('size', '')} {s.get('type', '')}, {s.get('alignment', '')}*" if s.get("type") else ""
+    kind = f"{s.get('size', '')} {s.get('type', '')}".strip()
+    head = (f"*{kind}, {s['alignment']}*" if s.get("alignment") else f"*{kind}*") if s.get("type") else ""
     ac = f"{s.get('ac', '?')}" + (f" ({s['ac_note']})" if s.get("ac_note") else "")
     hp = f"{s.get('hp', '?')}" + (f" ({s['hp_dice']})" if s.get("hp_dice") else "")
     cr = f"{s['cr']} ({s['xp']:,} XP)" if s.get("cr") else "?"

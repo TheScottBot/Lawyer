@@ -53,9 +53,11 @@ one is an edit and a restart, no rebuild.
 Give every book its `published` date (YYYY-MM-DD): `/settings prefer_newer` uses it to put the newest book's rules
 first.
 
-A book whose scan has generic fonts and headings in capitals (Xanathar's) is `"layout": "caps"`, with `page_offset`
-and `levels`: heading sizes to levels, biggest first (look at a few pages' heading sizes; see Xanathar's entry).
-The PDF's bookmarks are its outline.
+A book whose scan has generic fonts and headings in capitals (Xanathar's, Tasha's) is `"layout": "caps"`, with
+`page_offset` and `levels`: heading sizes to levels, biggest first (look at a few pages' heading sizes; see
+Xanathar's entry). The PDF's bookmarks are its outline, as deep as they go. If small feature headings are missed,
+lower `smallest_heading` (a fraction of the text's size; 0.82 unless set); if notes in the art are read as
+headings, list them in `ignore_headings` (see Tasha's entry).
 
 A bestiary (lots of stat blocks, PDF bookmarks for its monsters) is built differently: give it `"layout":
 "monsters"`, `page_offset` (PDF pages before the book's page 1) and `statblock_index_pages` (its Index of Stat
@@ -70,8 +72,8 @@ slash commands.
 
 ## Deploying
 
-Like ktdi: a git checkout (`/opt/lawyer`), a venv, and a systemd service running `/opt/lawyer/.venv/bin/python
-/opt/lawyer/bot.py`, restarted on failure. Copy `rules/` across (it isn't in git) or build it there with the PDFs.
-Updating is `git pull` and a restart; `pip install -e .` again only when `pyproject.toml` changes.
+[deploy/INSTALL.md](../deploy/INSTALL.md): `deploy/deploy.sh` installs it in the homelab container in phases, like
+CritDeckPy's (a checkout at `/opt/Lawyer`, a `lawyer` user and systemd service, a hashed dependency lock). Build the
+books here and copy `rules/*.json` over; the PDFs stay on this PC.
 
-Logs go to `logs/lawyer.log` (rotating, 1 MB × 5) and the journal.
+Logs go to `logs/lawyer.log` (rotating, 1 MB × 5) and the journal; each server's settings to `data/lawyer.db`.

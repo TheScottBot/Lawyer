@@ -38,7 +38,7 @@ def test_subclass_menu():
     # The class and the subclass together, in level order, the subclass's marked
     assert [f.name for f in clicked.last.embed.fields] == [
         "Hit Points", "Steady · 1st level", "Charge · 2nd level", "Lance Mastery · 5th level",
-        "🔸 Barbs · 7th level (Order of the Thorn)"]
+        "🔸 Barbs · 7th level (Order of the Thorn)", "🔸 Spikes · 15th level (Order of the Thorn)"]
     assert "🔸 marks Order of the Thorn's features (TB)" in clicked.last.embed.description
 
 

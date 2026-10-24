@@ -1,0 +1,40 @@
+# Lawyer under systemd, for the homelab container. Installed by deploy/deploy.sh;
+# see deploy/INSTALL.md.
+
+[Unit]
+Description=Lawyer Discord bot (D&D rules lookup)
+# The bot is useless until it can reach Discord.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lawyer
+Group=lawyer
+# .env, rules/, data/ and logs/ are all read relative to here.
+WorkingDirectory=/opt/Lawyer
+# Run from the checkout's source rather than an installed package, so updating
+# is a git pull and a restart, with nothing to build on the host.
+Environment=PYTHONPATH=/opt/Lawyer
+ExecStart=/opt/Lawyer/.venv/bin/python -m lawyer
+# A wrong token exits with status 1; waiting between attempts keeps a broken
+# configuration from spinning, and the journal says why.
+Restart=on-failure
+RestartSec=30
+
+# The bot needs to read its checkout and write its logs and settings, nothing more.
+# data/ holds lawyer.db (each server's /settings); SQLite needs the folder writable.
+ProtectSystem=strict
+ReadWritePaths=/opt/Lawyer/logs /opt/Lawyer/data
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

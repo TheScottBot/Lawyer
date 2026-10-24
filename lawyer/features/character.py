@@ -32,7 +32,7 @@ BASICS = ["Hit Points", "Proficiencies", "Equipment"]  # A class's first feature
 FEATURE_TEXT = 700  # Characters of each feature: enough to use it; /rule has the rest
 COMPACT_TEXT = 300  # ...and in the class-and-subclass view, where there are twice as many
 PAGE_LIMIT = EMBED_TOTAL_LIMIT - 400
-LEVEL = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)[ -]level\b|\blevel (\d{1,2})\b", re.IGNORECASE)
+LEVEL = re.compile(r"\b(\d{1,2})\s?(?:st|nd|rd|th)\s?[ -]level\b|\blevel (\d{1,2})\b", re.IGNORECASE)  # "4 th-level"
 
 
 def under(entry: Entry) -> list[Entry]:
@@ -62,15 +62,28 @@ def subclasses(cls: Entry) -> list[Entry]:
     return found
 
 
+NOT_SUBCLASSES = re.compile(r"\b(optional|options?|builds?|companions?|infusions?|features?|invocations?)\b",
+                            re.IGNORECASE)  # Tasha's "Optional Class Features", "Maneuver Options"...
+
+
+def is_subclass_like(entry: Entry) -> bool:
+    """A heading with features of its own (two or more), that isn't a list of options ("Maneuver Options")."""
+    return len(under(entry)) >= 2 and not NOT_SUBCLASSES.search(entry.title)
+
+
 def book_subclasses(cls: Entry, least: int = 2) -> list[Entry]:
-    """The subclasses in one book: under the class's heading whose own sections each have features (Martial
-    Archetypes: Champion, Battle Master, Eldritch Knight). A supplement can add as few as one (`least`)."""
+    """The subclasses in one book: under a heading of them (the PHB's Martial Archetypes: Champion, Battle Master,
+    Eldritch Knight), or straight under the class (Tasha's Barbarian: Path of the Beast, Path of Wild Magic). A
+    supplement can add as few as one (`least`)."""
     for section in under(cls):
-        if section.title == "Class Features":
+        if section.title == "Class Features" or NOT_SUBCLASSES.search(section.title):
             continue
-        options = under(section)
-        if sum(1 for o in options if under(o)) >= least:
-            return [o for o in options if under(o)]
+        options = [o for o in under(section) if is_subclass_like(o)]
+        if len(options) >= least:
+            return options
+    direct = [o for o in under(cls) if o.title != "Class Features" and is_subclass_like(o)]
+    if len(direct) >= least:
+        return direct
     # The scan lost the heading (Otherworldly Patrons): they're under Class Features, as "The Fiend" and the rest
     features = next((e for e in under(cls) if e.title == "Class Features"), None)
     found = [f for f in under(features) if is_subclass(f)] if features else []
@@ -169,7 +182,9 @@ def class_features(cls: Entry) -> tuple[list[Entry], list[Entry]]:
     heading = next(e for e in under(cls) if e.title == "Class Features")
     # Not "The Fighter" (a sidebar) or "The Fiend" (a subclass the scan put here: it's in the menu)
     features = [f for f in under(heading) if not f.title.startswith("The ")]
-    basics = [f for f in features if f.title in BASICS]
+    # Tasha's Artificer has its Hit Points and Proficiencies beside Class Features, not under it
+    features = [f for f in under(cls) if f.title in BASICS and f.title not in {g.title for g in features}] + features
+    basics = sorted((f for f in features if f.title in BASICS), key=lambda f: BASICS.index(f.title))
     return basics, sorted((f for f in features if f.title not in BASICS), key=level_of)  # Keeps the book's order
 
 

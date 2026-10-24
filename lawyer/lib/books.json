@@ -72,6 +72,36 @@
         "App. A: Shared Campaigns": "rule",
         "App. B: Character Names": "lore"
       }
+    },
+    "tce": {
+      "published": "2020-11-17",
+      "source": "TCE",
+      "title": "Tasha's Cauldron of Everything",
+      "edition": "5e-2014",
+      "file": "Tashas-cauldron-of-everythingpdf-pdf-free.pdf",
+      "layout": "caps",
+      "page_offset": 1,
+      "levels": [[12.5, 4], [0, 5]],
+      "smallest_heading": 0.78,
+      "ignore_headings": ["Tasha", "TAA", "Taha", "Ta a", "Taih J", "Tasa"],
+      "default_category": "rule",
+      "categories": {
+        "Tasha's Cauldron of Everything": "skip",
+        "Alternate Cover": "skip",
+        "Credits": "skip",
+        "Table of Contents": "skip",
+        "Using This Book": "rule",
+        "Ch. 1: Character Options": "class",
+        "Customizing Your Origin": "race",
+        "Changing a Skill": "rule",
+        "Changing Your Subclass": "rule",
+        "Feats": "feat",
+        "Ch. 2: Group Patrons": "rule",
+        "Ch. 3: Magical Miscellany": "rule",
+        "Spells": "spell",
+        "Magic Items": "item",
+        "Ch. 4: Dungeon Master's Tools": "rule"
+      }
     }
   }
 }

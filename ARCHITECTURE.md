@@ -56,6 +56,8 @@ books/                 the PDFs (ours; never committed)
 rules/                 what's built from them (never committed)
 tests/                 pytest; a made-up rulebook in conftest.py stands in for the real ones
 docs/                  COMMANDS.md (every command), SETUP.md (building books, deploying)
+deploy/                deploy.sh (phased install in the homelab container), lawyer.service (systemd, sandboxed:
+                       writes only logs/ and data/), the hashed dependency lock, INSTALL.md
 ```
 
 ## 4. The data
@@ -145,6 +147,20 @@ Handbook, so it's the PHB's pipeline (`rules_build`'s tree, entries, word repair
 Supplements' subclasses join their class: `/class` finds every book's heading for the same class, and its
 subclasses (Xanathar's Barbarian > Primal Paths > Path of the Zealot) go in the menu with their source.
 
+**Deeper bookmarks** (Tasha's bookmarks every subclass, spell and magic item: `deeper_bookmarks`): each depth below
+the sections is a level (a subclass 3), and every other heading goes one below the deepest, all at the same level,
+because Tasha's headings' sizes don't say much (a subclass's is no bigger than its features', and "Ranger
+Archetypes" is bigger than both). A bookmark finds its heading on its page or either side; one with no heading (The
+Genie's title is only in the art) is put back at the top of its page. Then **`reown`** moves each feature to the
+subclass its italic line names ("6th-level Fathomless feature"), since two-column pages are read out of order;
+a class's own ("2nd-level rogue feature") stays put. books.json can also lower `smallest_heading` (Tasha's 8pt
+features against 10pt text) and list `ignore_headings` (Tasha's handwritten notes in the art: "TAA", "Taha").
+
+Stat blocks inside features and spells (Tasha's Wildfire Spirit, the Summon spells' spirits, Mighty Servant of
+Leuk-o) are parsed too (`has_stat_block`): any heading whose first lines are Armor Class and Hit Points. Summons
+have no alignment, hit points as a formula ("5 + five times your druid level") and no challenge rating; none of
+that is flagged as a misread.
+
 ### 5b. Stat blocks (`statblocks.py`)
 
 `parse(lines)` turns a stat block's lines into `stats`: size, type, alignment, AC, HP and dice, speed, the six
@@ -205,8 +221,10 @@ All three read `rule.rulebook` (so the tests' stand-in book reaches them too):
   "(continued)" after). Over one embed's 6,000 characters, it's pages with ◀ ▶.
 - **/class**: a class is a `class` entry with "Class Features" among its sections. Its features are the sections under
   that, in level order (the level is read from the text: "Beginning at 5th level"; 1st if it doesn't say), with Hit
-  Points, Proficiencies and Equipment first and sidebars ("The Fighter") left out. Its subclasses are the sections
-  under its one heading whose sections have features of their own (Martial Archetypes).
+  Points, Proficiencies and Equipment first (beside Class Features, for Tasha's Artificer) and sidebars ("The
+  Fighter") left out. Its subclasses are headings with two or more features of their own, either under a heading of
+  them (Martial Archetypes) or straight under the class (Tasha's), never a list of options ("Optional Class
+  Features", "Maneuver Options": `NOT_SUBCLASSES`).
 - **/race**: a race is a `race` entry with "<Race> Traits" among its sections. Its traits are that entry's run-in
   rules, one field each; its subraces are the sections under it.
 
@@ -229,8 +247,11 @@ Like ktdi: `bot.py` → `lawyer.bot.main()`; `config` loads `.env` (`.env.dev` w
 `FEATURES` and syncs slash commands to each server in `GUILD_IDS` (instant), clearing the global copies. `rule.py`
 loads `rules/` when it's imported, and logs how many entries from which books (or warns there are none).
 
-Deployed as a git checkout with a systemd service running `python bot.py`; `rules/` is copied across or built there.
-No database: the bot keeps nothing but logs.
+Deployed like CritDeckPy (`deploy/`, [deploy/INSTALL.md](deploy/INSTALL.md)): `deploy.sh`'s phases make a `lawyer`
+user, a checkout at `/opt/Lawyer`, a venv from the hashed lock (the same two dependencies as CritDeckPy, so the same
+lock), `.env` (readable only by root and the service), and the sandboxed `lawyer.service` running `python -m lawyer`,
+which can write only `logs/` and `data/` (where `DB_PATH` puts `lawyer.db`). The books are built on the PC with the
+PDFs and only `rules/*.json` is copied over; the `rules` phase stops until it has been.
 
 ## 10. Testing
 
