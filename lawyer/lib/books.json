@@ -1,0 +1,77 @@
+{
+  "_about": "The rulebooks /rule knows. Each is built from its PDF in books/ by python -m lawyer.tools.rules_build <id>, into rules/<id>.json (neither is ever committed: the books are ours, not the repo's). categories: a chapter's or section's title (as the book writes it, any case) -> the category its entries get; the nearest one above an entry wins, and 'skip' leaves that part out. published: when it came out (for /settings prefer_newer). contents_pages: the PDF pages (1 = the first) of the book's table of contents, for printed page numbers.",
+  "books": {
+    "phb": {
+      "published": "2014-08-19",
+      "source": "PHB",
+      "title": "Player's Handbook",
+      "edition": "5e-2014",
+      "file": "DnD_5e_Players_Handbook_BnW_OCR (1).pdf",
+      "contents_pages": [2],
+      "default_category": "rule",
+      "categories": {
+        "Preface": "skip",
+        "Contents": "skip",
+        "Introduction": "rule",
+        "Chapter 1: Step-by-Step Characters": "rule",
+        "Chapter 2: Races": "race",
+        "Chapter 3: Classes": "class",
+        "Chapter 4: Personality and Background": "background",
+        "Chapter 5: Equipment": "equipment",
+        "Chapter 6: Customization Options": "rule",
+        "Feats": "feat",
+        "Chapter 7: Using Ability Scores": "rule",
+        "Chapter 8: Adventuring": "rule",
+        "Chapter 9: Combat": "rule",
+        "Chapter 10: Spellcasting": "rule",
+        "Chapter 11: Spells": "spell",
+        "Appendix A: Conditions": "condition",
+        "Appendix B: Gods of the Multiverse": "lore",
+        "Appendix C: The Planes of Existence": "lore",
+        "Appendix D: Creature Statistics": "creature",
+        "Appendix E: Inspirational Reading": "skip",
+        "Index": "skip"
+      }
+    },
+    "mm": {
+      "published": "2014-09-30",
+      "source": "MM",
+      "title": "Monster Manual",
+      "edition": "5e-2014",
+      "file": "D&D 5E - Monster Manual.pdf",
+      "layout": "monsters",
+      "page_offset": 0,
+      "statblock_index_pages": [351, 352, 353],
+      "default_category": "lore",
+      "categories": {
+        "Contents": "skip",
+        "Introduction": "rule",
+        "Index of Stat Blocks": "skip"
+      }
+    },
+    "xge": {
+      "published": "2017-11-21",
+      "source": "XGE",
+      "title": "Xanathar's Guide to Everything",
+      "edition": "5e-2014",
+      "file": "D&D 5E - Xanathar's Guide to Everything.pdf",
+      "layout": "caps",
+      "page_offset": 0,
+      "levels": [[12.5, 3], [9.9, 4], [0, 5]],
+      "default_category": "rule",
+      "categories": {
+        "Credits": "skip",
+        "Table of Contents": "skip",
+        "Back Cover": "skip",
+        "lntroduction": "rule",
+        "Ch. 1: Character Options": "class",
+        "This Is Your Life": "rule",
+        "Racial Feats": "feat",
+        "Ch. 2: Dungeon Master 's Tools": "rule",
+        "Ch. 3: Spells": "spell",
+        "App. A: Shared Campaigns": "rule",
+        "App. B: Character Names": "lore"
+      }
+    }
+  }
+}

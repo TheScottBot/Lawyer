@@ -1,0 +1,33 @@
+[project]
+name = "lawyer"
+version = "0.1.0"
+description = "Lawyer - a rules lawyer for our D&D Discord server"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "discord.py>=2.6",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+# Only for building the rules from the PDFs (python -m lawyer.tools.rules_build); the bot itself never reads a PDF.
+build = ["pypdf>=5"]
+dev = ["pytest>=8", "pypdf>=5"]
+
+[project.scripts]
+lawyer = "lawyer.bot:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["lawyer*"]
+
+[tool.setuptools.package-data]
+"lawyer.lib" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# discord.py's own deprecation warnings on newer Pythons; nothing to do with this code.
+filterwarnings = ["ignore::DeprecationWarning:discord.*"]

@@ -1,0 +1,28 @@
+{
+  "_about": "Other names for entries, by id: what people type at the table that isn't the book's heading. Merged into each entry's aliases when the bot loads the rules, so no rebuild is needed. Names only, never the books' text.",
+  "aliases": {
+    "phb.condition.poisoned": ["poison", "poison condition"],
+    "phb.condition.prone": ["knocked prone", "knocked down"],
+    "phb.condition.unconscious": ["knocked out"],
+    "phb.condition.exhaustion": ["exhausted", "levels of exhaustion"],
+    "phb.condition.invisible": ["invisibility condition"],
+    "phb.condition.grappled": ["grapple condition"],
+    "phb.rule.grappling": ["grapple", "grab"],
+    "phb.rule.shoving-a-creature": ["shove", "push"],
+    "phb.rule.opportunity-attacks": ["aoo", "attack of opportunity", "attacks of opportunity"],
+    "phb.rule.two-weapon-fighting": ["twf", "dual wielding", "dual wield", "offhand attack"],
+    "phb.rule.chapter-7-using-ability-scores.advantage-and-disadvantage": ["advantage", "disadvantage", "adv"],
+    "phb.rule.how-to-play.advantage-and-disadvantage": ["advantage", "disadvantage", "adv"],
+    "phb.rule.short-rest": ["short rest", "sr"],
+    "phb.rule.long-rest": ["long rest", "lr"],
+    "phb.rule.death-saving-throws": ["death saves", "death save", "dying"],
+    "phb.rule.concentration": ["concentrating", "losing concentration"],
+    "phb.rule.cover": ["half cover", "three-quarters cover", "total cover"],
+    "phb.rule.movement-and-position.difficult-terrain": ["rough terrain"],
+    "phb.rule.surprise": ["surprised", "surprise round"],
+    "phb.rule.lifting-and-carrying": ["carry weight", "how much can i carry"],
+    "phb.rule.bonus-actions": ["bonus action"],
+    "phb.rule.the-order-of-combat.reactions": ["reaction"],
+    "phb.rule.critical-hits": ["crit", "crits", "critical hit", "nat 20"]
+  }
+}

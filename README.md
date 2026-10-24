@@ -7,8 +7,8 @@ A Discord bot that looks rules up in our own rulebooks, so nobody has to dig thr
 (`!rule`; the prefix is `COMMAND_PREFIX` in `.env`).
 
 It reads only from books we've built it (see [docs/SETUP.md](docs/SETUP.md)): no AI, no internet, nothing made up.
-Every answer says which book and page it came from. Right now that's the 2014 Player's Handbook; the Monster Manual,
-Dungeon Master's Guide, Xanathar's and Tasha's are next.
+Every answer says which book and page it came from. Right now that's the 2014 Player's Handbook, Monster Manual and
+Xanathar's Guide to Everything; the Dungeon Master's Guide, Tasha's and Monsters of the Multiverse are next.
 
 ## Commands
 
@@ -18,9 +18,13 @@ The [full command reference](docs/COMMANDS.md) has every option and example.
 - `/rule <what>`: look up a rule, condition, spell, feat, class feature or anything else in the books. Type it
   however you'd say it (`grappled`, `aoo`, `fighter extra attack`, `posion` works too). Menus under the answer show
   the other matches and the sections under it.
+- `/stats <monster>`: a monster's stat block, ready to run (AC, HP, abilities, actions, legendary actions).
+- `/class <name> [subclass]`: a class's features all together, by level; with a subclass, both in one list.
+- `/race <name>`: a race's traits all together, with its subraces.
 
 ### 🔧 Utilities
 - `/help [command]`: every command, or one in detail.
+- `/settings`: this server's settings, like `prefer_newer` (the newest book's rules first).
 
 ## Quick start
 

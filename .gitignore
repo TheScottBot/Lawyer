@@ -13,3 +13,4 @@ logs/
 # The rulebooks (our own PDFs) and what's built from them (python -m lawyer.tools.rules_build): never committed.
 books/
 rules/
+*.db
