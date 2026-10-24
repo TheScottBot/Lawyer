@@ -47,16 +47,21 @@ class Entry:
     aliases: list[str] = field(default_factory=list)
     book_id: str = ""
     stats: dict | None = None  # A stat block's, parsed (see lawyer/tools/statblocks.py): monsters and creatures
+    page_to: int | None = None  # Where the scan lost pages nearby: it's on a page from `page` to this
 
     @classmethod
     def from_json(cls, data: dict, book_id: str) -> "Entry":
         return cls(data["id"], data["title"], data["source"], data["book"], data["edition"], data["page"],
                    data["category"], data.get("text", ""), list(data.get("path", [])),
-                   list(data.get("sections", [])), list(data.get("aliases", [])), book_id, data.get("stats"))
+                   list(data.get("sections", [])), list(data.get("aliases", [])), book_id, data.get("stats"),
+                   data.get("page_to"))
 
     @property
     def where(self) -> str:
-        """Where it is in the book: "PHB p. 292"."""
+        """Where it is in the book: "PHB p. 292", or "PHB p. 284–288" where the scan lost pages and it's somewhere
+        between."""
+        if self.page_to and self.page_to > self.page:
+            return f"{self.source} p. {self.page}–{self.page_to}"
         return f"{self.source} p. {self.page}"
 
     def names(self) -> list[str]:

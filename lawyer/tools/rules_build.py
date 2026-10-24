@@ -547,6 +547,11 @@ def page_numbers(blocks: list[Block], toc: list[Contents], page_count: int) -> l
     """Each PDF page's printed page number: anchored where a contents entry's heading is found, counted on from
     there, and never past the next anchor (the scan dropped pages, so the count drifts behind; the anchors catch it
     up)."""
+    return fill(contents_anchors(blocks, toc), page_count)
+
+
+def contents_anchors(blocks: list[Block], toc: list[Contents]) -> dict[int, int]:
+    """PDF page -> printed page, where a contents entry's heading is."""
     headings = [(b.page, plain(b.text)) for b in blocks if b.kind == "heading"]
     anchors: dict[int, int] = {}
     start = 0
@@ -561,6 +566,23 @@ def page_numbers(blocks: list[Block], toc: list[Contents], page_count: int) -> l
                     anchors[pdf_page] = printed
                 start = pdf_page
                 break
+    return anchors
+
+
+def latest(anchors: dict[int, int], page_count: int) -> list[int]:
+    """The latest each PDF page's printed number can be: counted back from the next anchor. Where the scan dropped
+    pages between two anchors (art, in the spells chapter), a page is somewhere between fill()'s number and this."""
+    numbers = fill(anchors, page_count)
+    later = sorted(anchors.items())
+    out = []
+    for pdf_page in range(page_count):
+        after = next(((p, n) for p, n in later if p >= pdf_page), None)
+        out.append(max(numbers[pdf_page], after[1] - (after[0] - pdf_page)) if after else numbers[pdf_page])
+    return out
+
+
+def fill(anchors: dict[int, int], page_count: int) -> list[int]:
+    """Every PDF page's printed number from the anchors: counted on from the one before, never past the next."""
     numbers, current = [], 0
     upcoming = sorted(anchors.items())
     for pdf_page in range(page_count):
@@ -573,6 +595,90 @@ def page_numbers(blocks: list[Block], toc: list[Contents], page_count: int) -> l
                 current = min(current, later[0])
         numbers.append(current or pdf_page + 1)
     return numbers
+
+
+INDEX_TERM = re.compile(r"^(.*?\S)\s*,\s*([\d][\d\s,\-–]*)$")  # "lifting and carrying, 176", "ability check, 7 , 12"
+
+
+def index_terms(pages: list[list[Run]], index_pages: list[int]) -> list[tuple[str, list[int]]]:
+    """The book's index as (term, printed pages): "lifting and carrying, 176"; a sub-entry (indented under its
+    term) is also given with its term before it ("dropping to 0" under "hit points" is "hit points dropping to 0").
+    A term that wraps onto a second line is joined back up; "See ..." pointers have no pages and are skipped."""
+    found: list[tuple[str, list[int]]] = []
+    for number in index_pages:
+        parent, pending, main_x = "", "", None
+        for line in lines_of(pages[number - 1]):
+            text = " ".join(r.text.strip() for r in line).strip()
+            x = round(line[0].x)
+            # A sub-entry is indented from the term above it; a jump of more than that is the next column
+            indented = main_x is not None and 4 <= x - main_x <= 16
+            if not indented and not pending:
+                main_x = x
+            whole = f"{pending} {text}".strip() if pending else text
+            match = INDEX_TERM.match(whole)
+            if not match:
+                # "skills with different abilities" / "(variant), 175": the term carries on; "See ..." doesn't
+                pending = whole if "See" not in whole and len(whole) < 60 else ""
+                if not pending and not indented:
+                    parent = whole.split(".")[0].split(",")[0]
+                continue
+            pending = ""
+            term = match.group(1)
+            # "7 , 12, 173-179" -> 7, 12, 173 (a range's first page); "4 1" is the OCR's 41
+            numbers = [int(m.group()) for part in match.group(2).split(",")
+                       if (m := re.match(r"\d+", part.replace(" ", "")))]
+            if indented and parent:
+                found.append((f"{parent} {term}", numbers))
+            else:
+                parent = term
+            found.append((term, numbers))
+    return found
+
+
+def index_anchors(blocks: list[Block], terms: list[tuple[str, list[int]]], estimate: list[int]) -> dict[int, int]:
+    """PDF page -> printed page, where an index term names one heading only ("Action Surge (fighter), 72"): of the
+    index's pages for it, the one closest to where the contents-page count already puts it (within a dozen pages:
+    the scan never drops more than that between two chapters)."""
+    by_key: dict[str, list[Block]] = {}
+    for block in blocks:
+        if block.kind == "heading":
+            by_key.setdefault(plain(block.text), []).append(block)
+    anchors: dict[int, list[int]] = {}
+    for term, numbers in terms:
+        keys = {plain(term), plain(re.sub(r"\s*\(.*?\)", "", term))}
+        for key in keys:
+            headings = by_key.get(key, [])
+            if len(key) < 4 or len(headings) != 1 or not numbers:
+                continue
+            page = headings[0].page
+            best = min(numbers, key=lambda n: abs(n - estimate[page]))
+            if abs(best - estimate[page]) <= 12:
+                anchors.setdefault(page, []).append(best)
+    # A page with several headings in the index: the printed page most of them agree on
+    return {page: max(set(found), key=found.count) for page, found in anchors.items()}
+
+
+def consistent(anchors: dict[int, int], trusted: dict[int, int]) -> dict[int, int]:
+    """The anchors that agree with each other: printed pages go up with PDF pages, and the gap between them never
+    shrinks (a scan can drop pages, never add them). The largest such set, preferring the contents page's anchors
+    (`trusted`), which count three times."""
+    items = sorted(anchors.items())
+    weight = [3 if trusted.get(p) == n else 1 for p, n in items]
+    best = [w for w in weight]
+    before = [-1] * len(items)
+    for i, (page, printed) in enumerate(items):
+        for j in range(i):
+            p, n = items[j]
+            if n < printed and printed - n >= page - p and best[j] + weight[i] > best[i]:
+                best[i], before[i] = best[j] + weight[i], j
+    if not items:
+        return {}
+    i = max(range(len(items)), key=best.__getitem__)
+    kept = {}
+    while i >= 0:
+        kept[items[i][0]] = items[i][1]
+        i = before[i]
+    return kept
 
 
 # Entries
@@ -606,7 +712,8 @@ def category_of(node: Node, book: dict) -> str:
     return book["default_category"]
 
 
-def entries(root: Node, book_id: str, book: dict, numbers: list[int], vocab: Words) -> list[dict]:
+def entries(root: Node, book_id: str, book: dict, numbers: list[int], vocab: Words,
+            last: list[int] | None = None) -> list[dict]:
     """One entry per heading and run-in rule. A heading's text is its own paragraphs, run-in rules and all, up to the
     next heading; its "sections" are the headings under it, for /rule to offer."""
     found, ids = [], Counter()
@@ -649,6 +756,8 @@ def entries(root: Node, book_id: str, book: dict, numbers: list[int], vocab: Wor
             "source": book["source"],
             "book": book["title"],
             "page": numbers[node.page],
+            # Where the scan dropped pages nearby, the latest it can be: it's on a page from "page" to this
+            **({"page_to": last[node.page]} if last and last[node.page] > numbers[node.page] else {}),
             "title": node.title,
             "category": category,
             "aliases": [],
@@ -713,10 +822,15 @@ def build(book_id: str, pdf: Path | None = None) -> dict:
         if block.kind != "text":
             block.text = fix_title(repair(block.text, vocab), vocab)
     toc = contents(pages, book.get("contents_pages", []))
-    numbers = page_numbers(blocks, toc, len(pages))
+    anchors = contents_anchors(blocks, toc)
+    numbers = fill(anchors, len(pages))
+    if book.get("index_pages"):  # The book's index pins far more headings to their pages than its contents
+        found = index_anchors(blocks, index_terms(pages, book["index_pages"]), numbers)
+        anchors = consistent({**found, **anchors}, anchors)
+        numbers = fill(anchors, len(pages))
     blocks = restructure(blocks, toc, numbers, vocab)
     return {"book": book_id, "source": book["source"], "title": book["title"], "edition": book["edition"],
-            "entries": entries(tree(blocks), book_id, book, numbers, vocab)}
+            "entries": entries(tree(blocks), book_id, book, numbers, vocab, latest(anchors, len(pages)))}
 
 
 def main(argv: list[str] | None = None) -> None:

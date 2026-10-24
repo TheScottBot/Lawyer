@@ -35,8 +35,9 @@ Each entry records where it came from:
 }
 ```
 
-`page` is the book's printed page, worked out from its contents page (the scans have dropped blank and art pages, so
-the PDF's own page numbers are off). `aliases` from `lawyer/lib/aliases.json` are added when the bot loads, so adding
+`page` is the book's printed page, worked out from its contents page and, with `index_pages` in books.json, its
+index (the scans have dropped blank and art pages, so the PDF's own page numbers are off). Where pages were lost
+nearby and nothing pins it, there's a `page_to` too, and the bot shows the range ("PHB p. 284–288"). `aliases` from `lawyer/lib/aliases.json` are added when the bot loads, so adding
 one is an edit and a restart, no rebuild.
 
 ### Adding a book

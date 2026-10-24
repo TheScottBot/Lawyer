@@ -122,6 +122,48 @@ def test_entries_from_pages():
     assert next(e for e in found if e["title"] == "Blinded")["id"] == "tb.condition.blinded"
 
 
+def test_index_terms():
+    """The book's index, with sub-entries indented under their term and terms that wrap onto a second line."""
+    index = page(Run("ability check, 7 , 12, 173-179 \n", BODY, 7.5, 40, 700),
+                 Run("contest, 174 \n", BODY, 7.5, 48, 690),
+                 Run("skills with different abilities \n", BODY, 7.5, 48, 680),
+                 Run("(variant), 175 \n", BODY, 7.5, 52, 670),
+                 Run("Action Surge (fighter), 72 \n", BODY, 7.5, 40, 660),
+                 Run("AC. See Armor Class \n", BODY, 7.5, 40, 650),
+                 Run("Menacing (half-orc), 4 1 \n", BODY, 7.5, 300, 700))
+    terms = dict(build.index_terms([index], [1]))
+    assert terms["ability check"] == [7, 12, 173]  # A range's first page
+    assert terms["ability check contest"] == terms["contest"] == [174]
+    assert terms["ability check skills with different abilities (variant)"] == [175]
+    assert terms["Action Surge (fighter)"] == [72]
+    assert terms["Menacing (half-orc)"] == [41]  # The OCR's "4 1"
+    assert not any("Armor Class" in t for t in terms)  # A pointer, no pages
+
+
+def test_index_anchors_and_consistency():
+    blocks = [Block("heading", "Action Surge", 5, 10), Block("heading", "Extra Attack", 5, 11),
+              Block("heading", "Extra Attack", 5, 20), Block("heading", "Sailor", 3, 30)]
+    estimate = list(range(60, 100))  # The contents page's count: PDF 10 is p. 70
+    terms = [("Action Surge (fighter)", [72]), ("Extra Attack", [49, 72]), ("Sailor", [9, 95]),
+             ("Sailor (background)", [139])]
+    found = build.index_anchors(blocks, terms, estimate)
+    # Extra Attack is two headings: no anchor; Sailor's 95 is the page within a dozen of the count, 139 isn't
+    assert found == {10: 72, 30: 95}
+    # A contents anchor that the index contradicts keeps its place (it counts three times); pages only go missing
+    trusted = {5: 65, 40: 106}
+    assert build.consistent({**found, 20: 70, **trusted}, trusted) == {5: 65, 10: 72, 30: 95, 40: 106}
+    # Anchors that would mean the scan added a page (ten PDF pages, nine printed) can't both be right
+    assert build.consistent({30: 95, 40: 104}, {40: 104}) == {40: 104}
+
+
+def test_page_ranges_where_pages_are_missing():
+    """Between two anchors with pages lost from the scan, a page is somewhere from the count forward to the count
+    back."""
+    anchors = {0: 10, 4: 16}  # Five PDF pages for seven printed ones: two lost somewhere between
+    assert build.fill(anchors, 6) == [10, 11, 12, 13, 16, 17]
+    assert build.latest(anchors, 6) == [10, 13, 14, 15, 16, 17]
+
+
 def test_missing_section_is_put_back():
     """A section the contents lists whose heading the scan lost (Barbarian's title page) goes back on its page."""
     blocks = [Block("heading", "Chapter 3: Classes", 1, 0), Block("text", "Classes intro.", page=0),

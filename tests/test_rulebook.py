@@ -98,6 +98,13 @@ def test_newer_first(test_book):
     assert ids(book.search("dash", book="tb", newer_first=True)) == ["tb.rule.dash"]
 
 
+def test_page_range_where_the_scan_lost_pages(test_book):
+    entry = test_book.by_id["tb.spell.fireball"]
+    assert entry.where == "TB p. 241"
+    entry.page_to = 244
+    assert entry.where == "TB p. 241–244"
+
+
 def test_load_with_no_books(tmp_path):
     assert len(Rulebook.load(tmp_path / "missing")) == 0
 

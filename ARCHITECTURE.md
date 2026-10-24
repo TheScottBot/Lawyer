@@ -70,6 +70,7 @@ entry:
 | `id` | `<book>.<category>.<slug>`, e.g. `phb.condition.poisoned`. A name used more than once in a category is qualified by its section: `phb.class.fighter.extra-attack`, `phb.class.monk.extra-attack`. Permanent: aliases and people's habits point at them. |
 | `edition`, `source`, `book` | `5e-2014`, `PHB`, `Player's Handbook`: from books.json. |
 | `page` | The printed page (§5). |
+| `page_to` | Only where the scan lost pages nearby and it can't be pinned: the latest page it can be on (`Entry.where` shows "p. 284–288"). |
 | `title` | The heading, as the book prints it. |
 | `category` | From the chapter or section it's in (books.json `categories`): `condition`, `rule`, `spell`, `feat`, `class`, `race`, `equipment`, `background`, `creature`, `lore`. |
 | `aliases` | Other names: `aliases.json`'s, added when the bot loads. |
@@ -93,8 +94,16 @@ parser leans on (pypdf's text visitor gives every run's font, size and position)
 4. **The contents page is the outline** (`restructure`): what it lists under a chapter is a section (level 2) and
    everything else goes under one. A section whose heading the scan lost (Barbarian's and Tiefling's title pages are
    missing) is put back at the start of its printed page, so Rage is still Barbarian's.
-5. **Printed pages** (`page_numbers`): each contents entry is found among the headings, which anchors that PDF page to
-   its printed number; pages between count on from there, never past the next anchor.
+5. **Printed pages**: each contents entry is found among the headings (`contents_anchors`), which anchors that PDF
+   page to its printed number. With books.json `index_pages`, the book's index adds far more (`index_terms`,
+   `index_anchors`): a term that names exactly one heading ("Action Surge (fighter), 72", a sub-entry with its term:
+   "ability check contest") anchors its page, choosing among its listed pages the one within a dozen of the contents
+   count. Anchors that contradict each other are dropped (`consistent`: printed pages rise with PDF pages and the gap
+   never shrinks, since a scan loses pages but never gains them; the largest agreeing set, contents anchors counting
+   three times). Pages between count on from the anchor before (`fill`). Where pages are lost between two anchors,
+   nothing says which, so an entry there also gets `page_to`, counted back from the next (`latest`): it's somewhere
+   from `page` to `page_to` ("PHB p. 284–288"). The PHB's index doesn't list spells, so the spells chapter, which
+   lost four art pages somewhere, is the widest.
 6. **Repairing the OCR** (`repair`, `clean`): it splits words ("dam age", "m ore", "su ccessfu l") and splits them in
    the wrong place ("tow orry"). Pieces are joined when the book prints the joined word, or a piece is mostly seen as
    half of a word; a split is moved when neither piece is a word and moving it makes two the book uses. Two everyday
